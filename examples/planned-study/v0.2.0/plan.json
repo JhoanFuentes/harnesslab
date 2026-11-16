@@ -1,7 +1,7 @@
 {
   "artifact_type": "harnesslab.study_plan",
   "schema_version": 1,
-  "created_at": "2026-11-16T21:35:32.150020+00:00",
+  "created_at": "2026-11-16T21:44:44.476665+00:00",
   "name": "HarnessLab repeated model comparison — draft protocol, no results",
   "ready_to_execute": false,
   "readiness_issues": [
@@ -13,7 +13,7 @@
     "Set output_rate_per_million for REPLACE_WITH_MODEL_B_SNAPSHOT",
     "Record pricing source_url and checked_on before running"
   ],
-  "runtime_source_sha256": "f3e0ccc7ba3ed332b599329244dd5aec1882af8c62dc09ad3bbca08036f0d52b",
+  "runtime_source_sha256": "b4329121df34bb1f4fb79ba7a06a5e46b790d5e91f0a26d2fb189b87f7714d60",
   "prompt_sha256": "c85448987827a40cb3eb63a6fe5964c913bc556bd626b08bae824224eac2c1d7",
   "dataset_sha256": "5b3c17c2eeb4970fa72d412c4d5190675dee44b027e28920fa20f9d211baa662",
   "dataset_manifest_sha256": "e5e5bda731aa8f78ba2f6062a480c8698c1f49b614ecc2b59988bfb3fcb131d4",
@@ -2340,5 +2340,5 @@
     "A single in-flight response may cross the observed spend threshold.",
     "Task cost is model inference only; excludes hosting, development and human review."
   ],
-  "plan_sha256": "d11be5fc2b2769994b4742c8b1bcfa7d319f4967a5ca849df0f3888a25bb2932"
+  "plan_sha256": "f94597968af43485ec0aec01fcbe8636511e1a5a7c36f78b0a3c7d95c641e5ba"
 }

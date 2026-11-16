@@ -29,7 +29,7 @@ p{{max-width:950px}}.muted,small{{color:var(--muted)}}.notice{{border-left:4px s
 .cards{{display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:15px;margin:28px 0}}.card{{background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:20px}}.value{{font-size:32px;font-weight:700;display:block;line-height:1.3}}
 .table{{overflow-x:auto;border:1px solid var(--line);border-radius:12px}}table{{border-collapse:collapse;width:100%;font-size:13px}}th,td{{padding:15px;text-align:left;border-bottom:1px solid var(--line);vertical-align:top}}th{{background:var(--panel)}}td.num{{font-family:ui-monospace,monospace;white-space:nowrap}}
 pre{{overflow:auto;white-space:pre-wrap;overflow-wrap:anywhere;background:#070d17;padding:18px;border-radius:8px;font-size:12px}}details{{border:1px solid var(--line);padding:14px 18px;margin:12px 0;border-radius:9px}}summary{{cursor:pointer}}.pass{{color:var(--green)}}.fail{{color:var(--amber)}}code{{font-size:.85em;overflow-wrap:anywhere}}footer{{border-top:1px solid var(--line);margin-top:40px;padding-top:20px;color:var(--muted);font-size:12px}}
-@media(max-width:600px){{main{{padding:24px 16px}}header{{display:block}}th,td{{padding:10px}}}}
+@media(max-width:600px){{main{{padding:24px 16px}}header{{display:block}}header .eyebrow{{display:block;margin-top:8px}}th,td{{padding:10px}}}}
 </style></head><body><main><header><span class="brand">HarnessLab</span><span class="eyebrow">Repeated trials · auditable economics</span></header>{body}
 <footer>Local synthetic incident environment · no production actions · standalone artifact, no external assets</footer></main></body></html>'''
 
