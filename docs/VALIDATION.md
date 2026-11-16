@@ -20,9 +20,31 @@ the original published GitHub results below remain historical.
 
 The plan and report screenshots were visually inspected. The mocked report is
 test evidence only and is not published as model performance. The included
-[planning preview](../examples/planned-study/plan.html) contains no measured
-results. The new source has not yet been pushed or verified by GitHub Actions;
-the updated CI includes network-free study preparation.
+[planning preview](../examples/planned-study/v0.2.0/plan.html) contains no measured
+results. The publication checks below record the subsequent GitHub validation.
+
+## v0.2.0 observed publication checks — 2026-11-16
+
+GitHub executed source commit `0b8c628006123a3b2f3bd12a6795c2485b9dc581`:
+
+- [Contract checks](https://github.com/JhoanFuentes/harnesslab/actions/runs/43962691543)
+  passed on **Ubuntu/Python 3.11, Ubuntu/Python 3.13, Windows/Python 3.11 and
+  Windows/Python 3.13**. Each job ran 140 tests, verified the original artifact,
+  generated the scripted demo, prepared a network-free study and validated the
+  public-file allowlist and current versioned plan.
+- [Pages publication](https://github.com/JhoanFuentes/harnesslab/actions/runs/43962691532)
+  succeeded. The original report remains at the site root, and the unexecuted
+  v0.2.0 preview is available at [the study URL](https://jhoanfuentes.github.io/harnesslab/study/).
+- A clean export of the Git staging tree also passed artifact verification and
+  the Pages build, checking normalized checkout bytes rather than relying only
+  on the original Windows working directory.
+- The live study preview was checked in Chrome at 1440×1080 and 390×844 with no
+  page errors or body overflow. Its preparation disclosure and 240 planned slots
+  were visible. The public original HTML, study HTML and study JSON matched the
+  committed Git blob bytes by SHA-256.
+
+No workflow performs live model inference. The published preview still requires
+model snapshots and prices and makes no measured model-performance claim.
 
 ## Original implementation and publication
 

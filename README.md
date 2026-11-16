@@ -20,7 +20,7 @@ runtime controls and reproducible experiments.
 
 | Evidence | Scope |
 | --- | --- |
-| **140 passing local tests** | Runtime recovery, provider contracts, usage accounting, dataset integrity and study integration. GitHub checks Windows/Ubuntu and Python 3.11/3.13; see the [validation record](docs/VALIDATION.md) for observed runs. |
+| **140 tests passing across four CI jobs** | Windows and Ubuntu, Python 3.11 and 3.13. Runtime recovery, provider contracts, usage accounting, dataset integrity and study integration. [Observed run](https://github.com/JhoanFuentes/harnesslab/actions/runs/43962691543) · [Validation record](docs/VALIDATION.md). |
 | **48 recorded scripted runs** | 12 original cases × 4 harness configurations. Hardened passes 12/12; baseline 7/12. These are runtime conformance results, not LLM accuracy. |
 | **4 development + 12 test fixtures** | A separate public synthetic suite with fixed diagnosis aliases, evidence requirements, abstentions and injection scenarios. No domain-expert or contamination-controlled benchmark claim. |
 | **240 planned task attempts** | Draft study: 12 test cases × 2 models × 2 profiles × 5 trials. Model snapshots and prices are deliberately unset. **No live model evaluation has been executed.** |
