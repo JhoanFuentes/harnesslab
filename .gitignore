@@ -1,0 +1,20 @@
+__pycache__/
+*.py[cod]
+*.egg-info/
+.venv/
+venv/
+build/
+dist/
+.env
+.env.*
+!.env.example
+runs/
+*.sqlite
+*.sqlite-shm
+*.sqlite-wal
+# The reviewed example contains synthetic data only; preserve its replay artifact.
+!examples/demo/traces-*.sqlite
+.coverage
+htmlcov/
+_site/
+.DS_Store
