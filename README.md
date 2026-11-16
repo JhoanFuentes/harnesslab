@@ -1,5 +1,7 @@
 # HarnessLab
 
+[![Contract checks](https://github.com/JhoanFuentes/harnesslab/actions/workflows/ci.yml/badge.svg)](https://github.com/JhoanFuentes/harnesslab/actions/workflows/ci.yml)
+
 **A durable agent runtime with reproducible tests for failures, approvals and evidence.**
 
 HarnessLab is a durable agent runtime and evaluation lab for evidence-grounded
@@ -9,13 +11,18 @@ synthetic incident suite.
 
 **Python 3.11+ · Zero runtime dependencies · Offline demo · Optional OpenAI Responses adapter**
 
+**[Explore the evaluation report](https://jhoanfuentes.github.io/harnesslab/)** ·
+[Read the case study](docs/CASE_STUDY.md) ·
+[Download a release](https://github.com/JhoanFuentes/harnesslab/releases)
+
 An incident agent may produce a plausible answer while citing documents it never
 read, repeating a side effect after a restart, or losing track of a billed request.
 HarnessLab turns these failure modes into explicit runtime contracts and
 reproducible experiments.
 
-**Validated locally:** 69 tests passed · 12 synthetic cases · 4 configurations ·
-48 scripted evaluation runs. [Validation record](docs/VALIDATION.md).
+**Validated:** 69 tests passed on Windows and Ubuntu with Python 3.11 and 3.13 ·
+12 synthetic cases · 4 configurations · 48 scripted evaluation runs.
+[Validation record](docs/VALIDATION.md).
 
 Research cutoff: **November 15, 2026**. [Sources and design implications](docs/RESEARCH.md).
 
@@ -50,9 +57,12 @@ Open `runs/demo/report.html` in a browser. It works offline, with profile filter
 outcome/evidence/safety scores, expandable traces, cost and latency accounting,
 and a reproducibility manifest. No API key, Docker, or package install is needed.
 
-An actual generated report is included at [examples/demo/report.html](examples/demo/report.html),
+The [public report](https://jhoanfuentes.github.io/harnesslab/) needs no installation.
+The same generated artifact is included at [examples/demo/report.html](examples/demo/report.html),
 with machine-readable results in [examples/demo/results.json](examples/demo/results.json).
-Download the repository to open the HTML; GitHub displays its source by default.
+Download the repository to open the HTML locally; GitHub's code view displays its source.
+CI verifies that the example's source hash, dataset, grades and audit chains agree
+before GitHub Pages can publish it.
 
 Optional editable install: `python -m pip install -e .`, then use `harnesslab`
 instead of `python -m harnesslab`. Installation may need build tooling from PyPI;

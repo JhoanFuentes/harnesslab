@@ -1,8 +1,16 @@
-# Publicar en GitHub
+# Publicación y mantenimiento en GitHub
 
-El proyecto está preparado para publicación, pero no se ha subido a ninguna
-cuenta. La carpeta que debes usar como raíz del repositorio es `harnesslab`:
-contiene `README.md`, `pyproject.toml`, `.github`, `harnesslab/` y `tests/`.
+El proyecto está publicado en [JhoanFuentes/harnesslab](https://github.com/JhoanFuentes/harnesslab),
+con [reporte navegable](https://jhoanfuentes.github.io/harnesslab/) y
+[releases](https://github.com/JhoanFuentes/harnesslab/releases).
+Los comandos de inicialización siguientes son para publicar otra copia o un fork,
+no para reinicializar el repositorio existente.
+
+Para mantener esta publicación, ejecuta las pruebas y
+`python scripts/verify_example.py` antes de enviar cambios. Si cambias el runtime,
+genera un experimento nuevo en `runs/review`, revisa sus resultados y actualiza
+conjuntamente reporte, JSON, SQLite, gráfico y caso de estudio cuando corresponda.
+No presentes una corrida nueva como si fuera la anterior.
 
 ## Antes del primer commit
 
@@ -43,7 +51,8 @@ git push -u origin main
 Completa la autenticación de GitHub por sus mecanismos habituales. No pongas
 tokens en la URL ni dentro de archivos del proyecto. Comprueba el resultado de
 GitHub Actions; la matriz configurada prueba Ubuntu y Windows con Python 3.11 y
-3.13. Esa matriz no se ejecutó en GitHub durante la construcción local.
+3.13. La matriz inicial pasó en GitHub; el [registro de validación](VALIDATION.md)
+enlaza las ejecuciones observadas. Comprueba el estado del commit que publiques.
 
 Descripción sugerida:
 

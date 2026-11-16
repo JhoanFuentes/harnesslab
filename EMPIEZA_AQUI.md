@@ -25,7 +25,8 @@ implementado y puedas explicar sus resultados.
 
 ## Primero, míralo funcionar
 
-1. Abre [el reporte real incluido](examples/demo/report.html) en tu navegador.
+1. Abre [el reporte público](https://jhoanfuentes.github.io/harnesslab/) en tu navegador.
+   También tienes [la copia local](examples/demo/report.html).
 2. Desde esta carpeta, con Python 3.11 o superior, ejecuta:
 
 ```sh
