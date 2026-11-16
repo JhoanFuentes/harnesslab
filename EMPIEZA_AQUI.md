@@ -10,6 +10,21 @@ scripted**: 12 escenarios sobre cuatro configuraciones. El adaptador para un
 modelo real está implementado y probado con respuestas HTTP simuladas; la calidad
 de diagnóstico de un LLM real aún debe medirse.
 
+Esa cifra corresponde a la versión publicada original. La nueva extensión agrega
+planes congelados, comparación de modelos, repeticiones por caso y costo por tarea
+exitosa incluyendo los intentos fallidos. Está preparada **sin llamadas pagadas**.
+Consulta [el nuevo protocolo](docs/LIVE_STUDY.md) y el registro de validación para
+las comprobaciones de esta ampliación.
+
+Puedes generar su vista previa sin clave ni red:
+
+```sh
+python -m harnesslab study-plan --config studies/live.example.json --output runs/study-plan.json
+```
+
+Abre `runs/study-plan.html`. Describe 240 intentos previstos y deja pendientes los
+modelos y tarifas. No es un reporte de precisión o costos medidos de un LLM.
+
 ## Cómo presentarlo en 30 segundos
 
 > HarnessLab estudia la confiabilidad de un agente que diagnostica incidentes.

@@ -42,6 +42,13 @@ def parser() -> argparse.ArgumentParser:
     sub.add_parser("cases", help="List the public synthetic scenarios")
     export = sub.add_parser("export-cases", help="Export editable synthetic dataset, including evaluator labels")
     export.add_argument("--output", type=Path, default=Path("cases.json"))
+    plan = sub.add_parser("study-plan", help="Freeze a repeated-model study without network calls")
+    plan.add_argument("--config", type=Path, required=True)
+    plan.add_argument("--output", type=Path, default=Path("runs/study-plan.json"))
+    study = sub.add_parser("study-run", help="Execute an explicit frozen study; this may incur API charges")
+    study.add_argument("--plan", type=Path, required=True)
+    study.add_argument("--output", type=Path, required=True, help="New directory; existing directories are refused")
+    study.add_argument("--env-file", type=Path, help="Explicit local key file; never executed or copied to artifacts")
     for name in ("demo", "eval"):
         e = sub.add_parser(name, help="Run deterministic comparison" if name == "demo" else "Run offline or opt-in live evaluation")
         e.add_argument("--output", type=Path, default=Path("runs/demo" if name == "demo" else "runs/eval"))
@@ -78,6 +85,28 @@ def parser() -> argparse.ArgumentParser:
 def main(argv: list[str] | None = None) -> int:
     args = parser().parse_args(argv)
     try:
+        if args.command == "study-plan":
+            from .study import plan_study
+            from .study_report import render_plan
+            preview = args.output.with_suffix(".html")
+            if args.output.suffix.lower() != ".json" or preview.exists():
+                raise ValueError("Choose a new .json output path with no existing .html preview")
+            plan = plan_study(args.config, args.output)
+            with preview.open("x", encoding="utf-8") as handle:
+                handle.write(render_plan(plan))
+            output({"plan": str(args.output), "preview": str(preview),
+                    "ready_to_execute": plan["ready_to_execute"], "readiness_issues": plan["readiness_issues"],
+                    "planned_tasks": len(plan["schedule"]),
+                    "maximum_model_requests": plan["max_planned_model_requests"],
+                    "network_calls": 0})
+            return 0
+        if args.command == "study-run":
+            from .study import read_api_key, run_study
+            report = run_study(args.plan, args.output, api_key=read_api_key(args.env_file))
+            output({"report": str(args.output / "report.html"), "results": str(args.output / "results.json"),
+                    "status": report["manifest"]["status"], "stop_reason": report["manifest"]["stop_reason"],
+                    "summary": report["metrics"]["groups"]})
+            return 0 if report["manifest"]["status"] == "completed" else 4
         if args.command == "cases":
             output([{"id": c.id, "question": c.question, "tags": c.tags} for c in load_cases()])
             return 0
@@ -136,7 +165,7 @@ def main(argv: list[str] | None = None) -> int:
             return 0 if state["status"] in {"completed", "insufficient_evidence", "waiting_approval"} else 2
         finally:
             store.close()
-    except (ValueError, OSError) as exc:
+    except (ValueError, OSError, KeyError, TypeError) as exc:
         print(f"harnesslab: {exc}", file=sys.stderr)
         return 2
 

@@ -113,6 +113,24 @@ checkpoint with the stored state. It does not replay inference or demonstrate
 that the same LLM would make the same decisions. The log is append-only through
 this API, not physically immutable or externally signed.
 
+## ADR 006: Freeze the study before inference
+
+`study.py` adds a separate plan/execute workflow around the same runtime. Plans
+contain dataset/rubric, source and prompt hashes, rates, limits and a seeded
+shuffled schedule. Plan creation cannot invoke a provider. Each execution uses
+a new directory, preserves failed attempts and discloses missing slots.
+
+`study_metrics.py` computes failure-inclusive cost per success and bootstraps
+case clusters with their trials together. `study_report.py` explicitly labels
+planning and injected offline-test artifacts. The new study rubric adds only
+frozen exact aliases; it does not leak gold labels or replace provenance checks
+with a model's own confidence. Inference quality remains unmeasured until a real
+study is executed. See [protocol and operating limits](LIVE_STUDY.md).
+
+The original scripted report retains its source snapshot and original traces.
+It can be reverified after the active runtime evolves without claiming a new
+measurement happened on the original date.
+
 ## Scaling path
 
 Before a production pilot: define target data and success criteria, evaluate a

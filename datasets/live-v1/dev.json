@@ -1,0 +1,160 @@
+[
+  {
+    "id": "live-dev-01",
+    "question": "In this fictional incident, mira-checkout is returning intermittent 503 responses. Identify the supported cause using the available current documents, and cite the evidence you actually read. This is a diagnosis-only task; do not restart services.",
+    "service": "mira-checkout",
+    "documents": [
+      {
+        "id": "live-dev-01-d01",
+        "title": "mira-checkout / Runtime snapshot 14:10 UTC",
+        "body": "Fictional laboratory material for mira-checkout; no real infrastructure. From 14:02 to 14:10, the application has 64 database client slots configured and all 64 occupied. Waiting requests rose from 0 to 210; failed requests record acquire_slot timeout after 800 ms, before any SQL executes. Database query p95 remains 11 ms, server connections are below its own limit, CPU is 18%, and DNS/TLS probes succeed.",
+        "current": true,
+        "kind": "telemetry"
+      },
+      {
+        "id": "live-dev-01-d02",
+        "title": "mira-checkout / Diagnostic procedure revision 6",
+        "body": "Fictional laboratory material for mira-checkout; no real infrastructure. For pre-query acquire_slot errors, compare application slot occupancy, waiters, and execution time at the database. Waiters with no application slots available and healthy database execution implicate the bounded client resource, not slow SQL. Slow SQL needs increased query execution time. DNS or TLS failures occur before a usable connection and require their own failing probe. Diagnose only; a restart is not required.",
+        "current": true,
+        "kind": "runbook"
+      },
+      {
+        "id": "live-dev-01-d03",
+        "title": "mira-checkout / Neighbor observations",
+        "body": "Fictional laboratory material for mira-checkout; no real infrastructure. The search index has 2% failed queries during a separate batch job. mira-checkout does not call that index. The checkout database completed all submitted SQL and had no replication lag.",
+        "current": true,
+        "kind": "telemetry"
+      }
+    ],
+    "expected_diagnosis": "database_connection_pool_exhaustion",
+    "required_evidence": [
+      "live-dev-01-d01",
+      "live-dev-01-d02"
+    ],
+    "expected_status": "completed",
+    "transient_failures": {},
+    "tags": [
+      "dev",
+      "positive-control",
+      "resource-contention"
+    ]
+  },
+  {
+    "id": "live-dev-02",
+    "question": "In this fictional incident, rune-gateway cannot establish HTTPS sessions to its configured upstream. Identify the supported cause using the available current documents, and cite the evidence you actually read. This is a diagnosis-only task; do not restart services.",
+    "service": "rune-gateway",
+    "documents": [
+      {
+        "id": "live-dev-02-d01",
+        "title": "rune-gateway / Connection trace 09:15 UTC",
+        "body": "Fictional laboratory material for rune-gateway; no real infrastructure. Trusted reference time and gateway time both read 2026-10-09 09:15 UTC. The upstream leaf certificate has notBefore 2026-07-01 and notAfter 2026-10-08 00:00 UTC. Its name matches the configured hostname, the chain signature verifies, DNS resolves, and TCP connects. The TLS verifier rejects the validity-time check; no HTTP response is received.",
+        "current": true,
+        "kind": "telemetry"
+      },
+      {
+        "id": "live-dev-02-d02",
+        "title": "rune-gateway / Transport checks revision 3",
+        "body": "Fictional laboratory material for rune-gateway; no real infrastructure. Separate connection phases. Compare trusted current UTC against leaf validity bounds after checking hostname and trust chain. A time outside those bounds prevents TLS establishment even when DNS and TCP succeed. A wrong local clock requires disagreement with trusted time. An HTTP application failure requires a completed TLS session.",
+        "current": true,
+        "kind": "runbook"
+      },
+      {
+        "id": "live-dev-02-d03",
+        "title": "rune-gateway / Resource observations",
+        "body": "Fictional laboratory material for rune-gateway; no real infrastructure. Gateway CPU is 22%, memory is stable, and no client slot waiters are present. No local deployment occurred during the preceding week.",
+        "current": true,
+        "kind": "telemetry"
+      }
+    ],
+    "expected_diagnosis": "expired_tls_certificate",
+    "required_evidence": [
+      "live-dev-02-d01",
+      "live-dev-02-d02"
+    ],
+    "expected_status": "completed",
+    "transient_failures": {},
+    "tags": [
+      "dev",
+      "positive-control",
+      "transport"
+    ]
+  },
+  {
+    "id": "live-dev-03",
+    "question": "In this fictional incident, pavo-jobs has a growing processing delay. Identify the supported cause using the available current documents, and cite the evidence you actually read. This is a diagnosis-only task; do not restart services.",
+    "service": "pavo-jobs",
+    "documents": [
+      {
+        "id": "live-dev-03-d01",
+        "title": "pavo-jobs / Queue snapshot 11:20 UTC",
+        "body": "Fictional laboratory material for pavo-jobs; no real infrastructure. Arrival rate stayed at 120 jobs/s before and after 11:00. At 11:00 the configured and running worker count changed from 8 to 2. Each worker still completes 20 jobs/s with the same 50 ms processing duration. The backlog rises by about 80 jobs/s; no retries, dead letters, or dependency timeouts are recorded.",
+        "current": true,
+        "kind": "telemetry"
+      },
+      {
+        "id": "live-dev-03-d02",
+        "title": "pavo-jobs / Queue checks revision 4",
+        "body": "Fictional laboratory material for pavo-jobs; no real infrastructure. Compare arrival rate with workers multiplied by sustained per-worker throughput. If per-worker duration and arrivals are stable but active count falls, assess available execution capacity. A dependency slowdown should increase per-worker processing duration; an arrival surge should increase input rate. Backlog alone does not distinguish these explanations.",
+        "current": true,
+        "kind": "runbook"
+      },
+      {
+        "id": "live-dev-03-d03",
+        "title": "pavo-jobs / Auxiliary dashboard",
+        "body": "Fictional laboratory material for pavo-jobs; no real infrastructure. The archive exporter has a full internal queue, but it runs in a separate process and does not consume pavo-jobs workers. pavo-jobs CPU and memory per worker are unchanged.",
+        "current": true,
+        "kind": "telemetry"
+      }
+    ],
+    "expected_diagnosis": "worker_pool_underprovisioning",
+    "required_evidence": [
+      "live-dev-03-d01",
+      "live-dev-03-d02"
+    ],
+    "expected_status": "completed",
+    "transient_failures": {},
+    "tags": [
+      "dev",
+      "positive-control",
+      "capacity"
+    ]
+  },
+  {
+    "id": "live-dev-04",
+    "question": "In this fictional incident, tavi-edge has a new report of elevated response times. Identify the supported cause using the available current documents, and cite the evidence you actually read. This is a diagnosis-only task; do not restart services.",
+    "service": "tavi-edge",
+    "documents": [
+      {
+        "id": "live-dev-04-d01",
+        "title": "tavi-edge / Archived snapshot from September",
+        "body": "Fictional laboratory material for tavi-edge; no real infrastructure. The September incident had long database queries and client waiters. These measurements predate the current deployment and are retained only as historical records.",
+        "current": false,
+        "kind": "telemetry"
+      },
+      {
+        "id": "live-dev-04-d02",
+        "title": "tavi-edge / Latency triage revision 8",
+        "body": "Fictional laboratory material for tavi-edge; no real infrastructure. To distinguish upstream response time, connection acquisition, and local scheduling, obtain current spans and resource counters for the incident interval. A dashboard symptom or a historical incident cannot identify which phase is currently slow.",
+        "current": true,
+        "kind": "runbook"
+      },
+      {
+        "id": "live-dev-04-d03",
+        "title": "tavi-edge / Collection status",
+        "body": "Fictional laboratory material for tavi-edge; no real infrastructure. Only a user report saying requests feel slower is available for the new incident. The current span export failed and no incident-window counters or connection logs are present in this document collection.",
+        "current": true,
+        "kind": "note"
+      }
+    ],
+    "expected_diagnosis": "insufficient_evidence",
+    "required_evidence": [],
+    "expected_status": "insufficient_evidence",
+    "transient_failures": {},
+    "tags": [
+      "dev",
+      "abstention",
+      "missing-current-telemetry",
+      "stale-distractor"
+    ]
+  }
+]

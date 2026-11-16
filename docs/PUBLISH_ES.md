@@ -3,14 +3,22 @@
 El proyecto está publicado en [JhoanFuentes/harnesslab](https://github.com/JhoanFuentes/harnesslab),
 con [reporte navegable](https://jhoanfuentes.github.io/harnesslab/) y
 [releases](https://github.com/JhoanFuentes/harnesslab/releases).
+La ampliación v0.2.0 añade una [vista previa del estudio](https://jhoanfuentes.github.io/harnesslab/study/)
+sin resultados de modelos reales; las ejecuciones con API siguen pendientes.
 Los comandos de inicialización siguientes son para publicar otra copia o un fork,
 no para reinicializar el repositorio existente.
 
 Para mantener esta publicación, ejecuta las pruebas y
 `python scripts/verify_example.py` antes de enviar cambios. Si cambias el runtime,
 genera un experimento nuevo en `runs/review`, revisa sus resultados y actualiza
-conjuntamente reporte, JSON, SQLite, gráfico y caso de estudio cuando corresponda.
-No presentes una corrida nueva como si fuera la anterior.
+conjuntamente los nuevos artefactos cuando corresponda. La corrida histórica
+v0.1.0 conserva su snapshot de fuente y sus resultados originales. No presentes
+una corrida nueva como si fuera la anterior. Los planes nuevos se guardan en un
+directorio de versión y deben tener un hash del runtime vigente.
+
+`python scripts/build_pages.py --output runs/public-review` valida y prepara
+solamente cinco archivos públicos revisados: reporte/JSON/SQLite histórico y
+HTML/JSON del plan actual. Nunca copia `runs/` ni claves al sitio.
 
 ## Antes del primer commit
 
@@ -56,7 +64,7 @@ enlaza las ejecuciones observadas. Comprueba el estado del commit que publiques.
 
 Descripción sugerida:
 
-> Durable agent runtime and behavioral evaluation lab: evidence gates, crash recovery, scoped approvals and reproducible ablations.
+> Durable AI agent runtime with repeated-trial evaluations, failure-inclusive cost per successful task, and auditable execution traces.
 
 Temas sugeridos: `ai-engineering`, `llm-agents`, `harness-engineering`, `evals`,
 `python`, `agent-reliability`. Ajusta el nombre del paquete si eliges publicarlo

@@ -87,7 +87,8 @@ class Harness:
     def _provider_settings(self) -> dict[str, Any]:
         from .providers import SYSTEM_PROMPT
         return {key: getattr(self.provider, key, None) for key in (
-            "input_rate_per_million", "output_rate_per_million", "max_output_tokens", "timeout")
+            "input_rate_per_million", "output_rate_per_million", "cached_input_rate_per_million",
+            "max_output_tokens", "timeout")
         } | {"prompt_hash": digest(SYSTEM_PROMPT) if self.provider.name == "openai" else None}
 
     def start(self, case: Case, config: Config | None = None) -> str:
@@ -107,12 +108,18 @@ class Harness:
         state = self.store.replay(run_id)
         if state["provider"] != self.provider.name or state["model"] != self.provider.model:
             raise ValueError("Resume requires the original provider and model")
-        if state.get("provider_settings") and state["provider_settings"] != self._provider_settings():
+        original_settings = dict(state.get("provider_settings", {}))
+        if original_settings:
+            # Older snapshots did not price cache reads separately. An omitted
+            # value is compatible only with the same conservative full rate.
+            original_settings.setdefault("cached_input_rate_per_million", None)
+        if original_settings and original_settings != self._provider_settings():
             raise ValueError("Resume requires the original provider settings and prompt version")
         if state["status"] == "running" and state.get("request_in_flight"):
             state["request_in_flight"] = False
-            state["usage_incomplete"] = True
-            state["estimated_cost_usd"] = None
+            self._account(state, 0, 0, None, usage_incomplete=True)
+            state["last_model_call"] = {"call_index": state["model_calls"], "status": "interrupted",
+                                        **self._usage_metadata(None, failed=True)}
             return self._stop(state, "provider_error", "interrupted_model_request_usage_unknown")
         config = Config(**state["config"])
         while state["status"] == "running":
@@ -142,12 +149,15 @@ class Harness:
                 # crash cannot erase the request count; billing may be unknown.
                 state["model_calls"] += 1
                 state["request_in_flight"] = True
+                state["last_model_call"] = {"call_index": state["model_calls"], "status": "requested",
+                                            **self._usage_metadata(None, failed=True)}
                 self.store.save(state, "model_requested", {"context_hash": digest(context),
                                                            "context_chars": len(canonical(context))})
                 accounted = False
                 try:
                     decision = self.provider.decide(context)
-                    self._account(state, decision.input_tokens, decision.output_tokens, decision.estimated_cost_usd)
+                    usage = self._usage_metadata(decision)
+                    self._account_usage(state, usage)
                     accounted = True
                     action = Action.from_dict(decision.action.to_dict())
                 except Exception as exc:
@@ -155,21 +165,29 @@ class Harness:
                     # never arbitrary exception text or the request headers.
                     state["request_in_flight"] = False
                     if not accounted:
-                        self._account(state, getattr(exc, "input_tokens", 0), getattr(exc, "output_tokens", 0),
-                                      getattr(exc, "estimated_cost_usd", None))
-                    if not accounted and not getattr(exc, "input_tokens", 0) and self.provider.name != "scripted":
-                        state["usage_incomplete"] = True
-                        state["estimated_cost_usd"] = None
+                        usage = self._usage_metadata(exc, failed=True)
+                        try:
+                            self._account_usage(state, usage)
+                        except (ValueError, TypeError):
+                            # Invalid custom error metadata must not erase a
+                            # reservation or reduce any budget counter.
+                            usage = self._usage_metadata(None, failed=True)
+                            self._account_usage(state, usage)
                     code = getattr(exc, "code", "invalid_provider_response")
+                    if not isinstance(code, str) or not re.fullmatch(r"[a-z][a-z0-9_]{0,79}", code):
+                        code = "invalid_provider_response"
+                    state["last_model_call"] = {"call_index": state["model_calls"], "status": "failed",
+                                                "error": code, **usage}
                     state["feedback"].append({"error": str(code)[:80]})
+                    state["status"] = "provider_error"
+                    self.store.save(state, "model_failed", state["last_model_call"])
                     return self._stop(state, "provider_error", "provider_request_failed")
                 state["request_in_flight"] = False
                 state["decision_index"] += 1
                 state["pending_action"] = action.to_dict()
                 state["action_id"] = digest({"run_id": run_id, "step": state["steps"], "action": action.to_dict()})
-                self.store.save(state, "model_decided", {"action": action.to_dict(),
-                                                         "input_tokens": decision.input_tokens,
-                                                         "output_tokens": decision.output_tokens})
+                state["last_model_call"] = {"call_index": state["model_calls"], "status": "decided", **usage}
+                self.store.save(state, "model_decided", {"action": action.to_dict(), **state["last_model_call"]})
                 # Actual usage is authoritative. Prevent acting after a request
                 # crosses a soft token/cost threshold.
                 if state["input_tokens"] + state["output_tokens"] > config.max_tokens:
@@ -227,18 +245,56 @@ class Harness:
         return state
 
     @staticmethod
-    def _account(state: dict[str, Any], input_tokens: int, output_tokens: int, cost: float | None) -> None:
+    def _usage_metadata(value: Any, *, failed: bool = False) -> dict[str, Any]:
+        def label(name: str) -> str | None:
+            raw = getattr(value, name, None)
+            return raw if isinstance(raw, str) and re.fullmatch(r"[A-Za-z0-9][A-Za-z0-9._:/+-]{0,199}", raw) else None
+        inputs, outputs = getattr(value, "input_tokens", 0), getattr(value, "output_tokens", 0)
+        return {"input_tokens": inputs, "output_tokens": outputs,
+                "estimated_cost_usd": getattr(value, "estimated_cost_usd", None),
+                "cached_input_tokens": getattr(value, "cached_input_tokens", None),
+                "cache_write_tokens": getattr(value, "cache_write_tokens", None),
+                "response_id": label("response_id"), "response_model": label("response_model"),
+                "cost_reason": label("cost_reason"),
+                "usage_incomplete": getattr(value, "usage_incomplete", failed and not inputs and not outputs)}
+
+    @classmethod
+    def _account_usage(cls, state: dict[str, Any], usage: dict[str, Any]) -> None:
+        cls._account(state, usage["input_tokens"], usage["output_tokens"], usage["estimated_cost_usd"],
+                     cached_input_tokens=usage["cached_input_tokens"], cache_write_tokens=usage["cache_write_tokens"],
+                     usage_incomplete=usage["usage_incomplete"])
+
+    @staticmethod
+    def _account(state: dict[str, Any], input_tokens: int, output_tokens: int, cost: float | None,
+                 *, cached_input_tokens: int | None = None, cache_write_tokens: int | None = None,
+                 usage_incomplete: bool = False) -> None:
         if any(type(n) is not int or n < 0 for n in (input_tokens, output_tokens)):
             raise ValueError("Provider usage must contain nonnegative integer token counts")
         if cost is not None and (type(cost) not in (int, float) or not math.isfinite(cost) or cost < 0):
             raise ValueError("Provider cost must be finite and nonnegative")
+        if any(n is not None and (type(n) is not int or not 0 <= n <= input_tokens)
+               for n in (cached_input_tokens, cache_write_tokens)):
+            raise ValueError("Provider cache token counts must be input subsets")
+        if (cached_input_tokens or 0) + (cache_write_tokens or 0) > input_tokens:
+            raise ValueError("Provider cached reads and writes exceed input tokens")
+        if type(usage_incomplete) is not bool:
+            raise ValueError("Provider usage completeness must be boolean")
+        previous_input = state["input_tokens"]
+        state.setdefault("cost_incomplete", state["model_calls"] > 1 and state["estimated_cost_usd"] is None
+                         and state["provider"] != "scripted")
+        for key, value in (("cached_input_tokens", cached_input_tokens), ("cache_write_tokens", cache_write_tokens)):
+            state[key] = state.get(key, 0) + (value or 0)
+            incomplete = key + "_incomplete"
+            state[incomplete] = state.get(incomplete, previous_input > 0) or (value is None and state["provider"] != "scripted")
         state["input_tokens"] += input_tokens
         state["output_tokens"] += output_tokens
+        state["usage_incomplete"] = state["usage_incomplete"] or usage_incomplete
         if cost is not None:
             state["reported_cost_usd"] += cost
-            state["estimated_cost_usd"] = None if state["usage_incomplete"] else state["reported_cost_usd"]
         elif state["provider"] != "scripted":
-            state["estimated_cost_usd"] = None
+            state["cost_incomplete"] = True
+        state["estimated_cost_usd"] = (None if state["usage_incomplete"] or state["cost_incomplete"]
+                                       else state["reported_cost_usd"])
 
     def _consume(self, state: dict[str, Any], kind: str, data: dict[str, Any]) -> None:
         state["steps"] += 1
@@ -311,7 +367,7 @@ class Harness:
         state = self.store.replay(run_id)
         if state["status"] != "provider_error":
             raise ValueError("Only provider_error runs can be retried")
-        if state["usage_incomplete"] and state["config"]["max_cost_usd"] is not None:
+        if (state["usage_incomplete"] or state["estimated_cost_usd"] is None) and state["config"]["max_cost_usd"] is not None:
             raise ValueError("Cannot enforce a cost budget after unknown request usage; reconcile externally and start a new run")
         state["status"] = "running"
         self.store.save(state, "provider_retry_authorized")

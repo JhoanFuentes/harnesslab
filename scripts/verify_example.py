@@ -18,8 +18,11 @@ def main() -> None:
     report = json.loads((directory / "results.json").read_text(encoding="utf-8"))
     manifest = report["manifest"]
     assert manifest["mode"] == "scripted", "Only the reviewed synthetic report belongs in this example"
-    source_hash = digest({p.name: p.read_text(encoding="utf-8") for p in sorted((ROOT / "harnesslab").glob("*.py"))})
-    assert source_hash == manifest["runtime_source_sha256"], "Regenerate the example after changing runtime source"
+    # The published v0.1.0 measurement is historical evidence. Verify its frozen
+    # source snapshot rather than relabelling a new run as the old measurement.
+    source_dir = directory / "runtime-source"
+    source_hash = digest({p.name: p.read_text(encoding="utf-8") for p in sorted(source_dir.glob("*.py"))})
+    assert source_hash == manifest["runtime_source_sha256"], "Historical example source snapshot differs"
     assert digest([c.to_dict() for c in load_cases()]) == manifest["dataset_sha256"], "Dataset differs from example"
     assert summarize(report["runs"]) == report["summaries"], "Summary differs from individual runs"
     trace_path = (directory / manifest["trace_database"]).resolve()

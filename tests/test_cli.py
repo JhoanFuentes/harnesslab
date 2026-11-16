@@ -114,6 +114,25 @@ class CLITests(unittest.TestCase):
             with self.subTest(command=command):
                 self.command(command, "unknown-run", "--db", str(self.db), expected_code=2)
 
+    def test_study_plan_is_explicitly_unexecuted_and_draft_cannot_run(self) -> None:
+        plan_file = self.output / "study.json"
+        result = self.command("study-plan", "--config", "studies/live.example.json", "--output", plan_file)
+        self.assertFalse(result["ready_to_execute"])
+        self.assertEqual(result["network_calls"], 0)
+        self.assertEqual(result["planned_tasks"], 240)
+        self.assertEqual(result["maximum_model_requests"], 1920)
+        self.assertTrue(plan_file.with_suffix(".html").is_file())
+        self.command("study-run", "--plan", plan_file, "--output", self.output / "must-not-exist", expected_code=2)
+        self.assertFalse((self.output / "must-not-exist").exists())
+
+    def test_study_plan_refuses_overwriting_preview(self) -> None:
+        plan_file = self.output / "study.json"
+        preview = plan_file.with_suffix(".html")
+        preview.write_text("original", encoding="utf-8")
+        self.command("study-plan", "--config", "studies/live.example.json", "--output", plan_file, expected_code=2)
+        self.assertEqual(preview.read_text(), "original")
+        self.assertFalse(plan_file.exists())
+
 
 if __name__ == "__main__":
     unittest.main()

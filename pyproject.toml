@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "harnesslab"
-version = "0.1.0"
+version = "0.2.0"
 description = "Durable agent runtime and behavioral evaluation lab for incident diagnosis"
 readme = "README.md"
 requires-python = ">=3.11"

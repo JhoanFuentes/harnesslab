@@ -2,3 +2,9 @@
 *.sqlite binary
 *.png binary
 *.jpg binary
+# Generated evidence and archived source should not inflate the active code view.
+examples/demo/*.json linguist-generated=true
+examples/demo/*.html linguist-generated=true
+examples/demo/runtime-source/*.py linguist-vendored=true
+examples/planned-study/**/*.json linguist-generated=true
+examples/planned-study/**/*.html linguist-generated=true

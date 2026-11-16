@@ -1,8 +1,10 @@
 """Model adapters: deterministic contract tests and opt-in real inference.
 
 No SDK, automatic retries, arbitrary base URLs, or credentials in the transcript.
-Responses API / Structured Outputs contract checked against official docs on
-2026-11-15. A supported model must be selected explicitly by the operator.
+Responses API usage contract checked against official docs on 2026-11-16:
+https://developers.openai.com/api/reference/resources/responses/methods/create
+https://developers.openai.com/api/docs/guides/prompt-caching
+A supported model and any prices must be selected explicitly by the operator.
 """
 
 from __future__ import annotations
@@ -10,11 +12,13 @@ from __future__ import annotations
 import json
 import math
 import os
+import re
 import socket
 from typing import Any
 import urllib.error
 import urllib.request
 
+from . import __version__
 from .models import Action, Decision, canonical
 
 
@@ -75,6 +79,12 @@ class ProviderError(RuntimeError):
         input_tokens: int = 0,
         output_tokens: int = 0,
         estimated_cost_usd: float | None = None,
+        cached_input_tokens: int | None = None,
+        cache_write_tokens: int | None = None,
+        response_id: str | None = None,
+        response_model: str | None = None,
+        cost_reason: str | None = None,
+        usage_incomplete: bool | None = None,
     ) -> None:
         super().__init__(code)
         self.code = code
@@ -82,6 +92,12 @@ class ProviderError(RuntimeError):
         self.input_tokens = input_tokens
         self.output_tokens = output_tokens
         self.estimated_cost_usd = estimated_cost_usd
+        self.cached_input_tokens = cached_input_tokens
+        self.cache_write_tokens = cache_write_tokens
+        self.response_id = response_id
+        self.response_model = response_model
+        self.cost_reason = cost_reason
+        self.usage_incomplete = (not input_tokens and not output_tokens) if usage_incomplete is None else usage_incomplete
 
 
 class ScriptedProvider:
@@ -109,7 +125,8 @@ class ScriptedProvider:
                 diagnosis="insufficient_evidence",
                 summary="Script exhausted; no further evidence was supplied.",
             )
-        return Decision(action, estimated_cost_usd=0.0)
+        return Decision(action, estimated_cost_usd=0.0, cached_input_tokens=0, cache_write_tokens=0,
+                        response_model=self.model, cost_reason="scripted_no_inference")
 
 
 class _NoRedirects(urllib.request.HTTPRedirectHandler):
@@ -122,9 +139,11 @@ class _NoRedirects(urllib.request.HTTPRedirectHandler):
 class OpenAIProvider:
     """Opt-in Responses API adapter. No API calls happen during construction.
 
-    Costs use operator-supplied rates, without cache/batch discounts. They are
-    estimates, not invoice totals. Unknown pricing stays None. No API retries
-    happen here: request outcomes after a transport failure may be uncertain.
+    Costs use operator-supplied rates. Cached reads receive a separate price
+    only when explicitly configured; otherwise all input uses the full rate.
+    Cache writes can have a different tariff, which this adapter does not price:
+    reported writes with configured rates stop the run with known tokens but
+    unknown cost. Estimates are not invoice totals. No automatic API retries.
     """
 
     name = "openai"
@@ -139,6 +158,7 @@ class OpenAIProvider:
         max_output_tokens: int = 1200,
         input_rate_per_million: float | None = None,
         output_rate_per_million: float | None = None,
+        cached_input_rate_per_million: float | None = None,
     ) -> None:
         self.model = model or os.environ.get("OPENAI_MODEL", "")
         self._api_key = api_key or os.environ.get("OPENAI_API_KEY", "")
@@ -156,8 +176,11 @@ class OpenAIProvider:
         self.max_output_tokens = max_output_tokens
         self.input_rate_per_million = self._rate(input_rate_per_million, "OPENAI_INPUT_USD_PER_MILLION")
         self.output_rate_per_million = self._rate(output_rate_per_million, "OPENAI_OUTPUT_USD_PER_MILLION")
+        self.cached_input_rate_per_million = self._rate(cached_input_rate_per_million, "OPENAI_CACHED_INPUT_USD_PER_MILLION")
         if (self.input_rate_per_million is None) != (self.output_rate_per_million is None):
             raise ValueError("Supply both input and output token prices, or neither")
+        if self.cached_input_rate_per_million is not None and self.input_rate_per_million is None:
+            raise ValueError("A cached input price requires input and output token prices")
         self._opener = urllib.request.build_opener(_NoRedirects())
 
     @staticmethod
@@ -170,23 +193,81 @@ class OpenAIProvider:
                 value = float(raw)
             except ValueError:
                 raise ValueError(f"{env} must be a finite nonnegative number") from None
-        if not isinstance(value, (int, float)) or not math.isfinite(value) or value < 0:
+        if type(value) not in (int, float) or not math.isfinite(value) or value < 0:
             raise ValueError(f"{env} must be a finite nonnegative number")
         return float(value)
 
-    def _usage(self, response: dict[str, Any]) -> tuple[int, int, float | None]:
+    def _response_metadata(self, response: dict[str, Any]) -> dict[str, str | None]:
+        def label(value: Any) -> str | None:
+            # IDs/model names are bounded labels, never response bodies or errors.
+            if (isinstance(value, str) and re.fullmatch(r"[A-Za-z0-9][A-Za-z0-9._:/+-]{0,199}", value)
+                    and self._api_key not in value):
+                return value
+            return None
+        return {"response_id": label(response.get("id")), "response_model": label(response.get("model"))}
+
+    def _usage(self, response: dict[str, Any]) -> dict[str, Any]:
+        reported: dict[str, Any] = {
+            "input_tokens": 0, "output_tokens": 0, "estimated_cost_usd": None,
+            "cached_input_tokens": None, "cache_write_tokens": None,
+            "cost_reason": "missing_usage", "usage_incomplete": True,
+            **self._response_metadata(response),
+        }
+
+        def fail(code: str) -> None:
+            reported["cost_reason"] = code
+            raise ProviderError(code, **reported)
+
         usage = response.get("usage")
         if not isinstance(usage, dict):
-            raise ProviderError("missing_usage")
+            fail("missing_usage")
         counts = (usage.get("input_tokens"), usage.get("output_tokens"))
+        for key, value in zip(("input_tokens", "output_tokens"), counts):
+            if type(value) is int and value >= 0:
+                reported[key] = value
         if any(type(n) is not int or n < 0 for n in counts):
-            raise ProviderError("invalid_usage")
+            fail("invalid_usage")
         input_tokens, output_tokens = counts
-        cost = None
-        if self.input_rate_per_million is not None and self.output_rate_per_million is not None:
-            cost = (input_tokens * self.input_rate_per_million +
-                    output_tokens * self.output_rate_per_million) / 1_000_000
-        return input_tokens, output_tokens, cost
+        if "input_tokens_details" in usage:
+            details = usage["input_tokens_details"]
+            if not isinstance(details, dict):
+                fail("invalid_usage_details")
+            for wire_key, field in (("cached_tokens", "cached_input_tokens"), ("cache_write_tokens", "cache_write_tokens")):
+                if wire_key in details:
+                    value = details[wire_key]
+                    if type(value) is not int or not 0 <= value <= input_tokens:
+                        fail("invalid_" + field)
+                    reported[field] = value
+            if (reported["cached_input_tokens"] or 0) + (reported["cache_write_tokens"] or 0) > input_tokens:
+                # Do not publish contradictory subset counts as valid metadata.
+                reported["cached_input_tokens"] = reported["cache_write_tokens"] = None
+                fail("invalid_usage_details")
+        reported["usage_incomplete"] = False
+        reported["cost_reason"] = "pricing_not_configured"
+        if self.input_rate_per_million is None or self.output_rate_per_million is None:
+            return reported
+        if reported["cache_write_tokens"]:
+            fail("unsupported_cache_write_pricing")
+        cached = reported["cached_input_tokens"] or 0
+        cached_rate = self.cached_input_rate_per_million
+        if reported["cached_input_tokens"] is None:
+            reported["cost_reason"] = "cache_details_missing_full_input_rate"
+        elif cached_rate is None:
+            reported["cost_reason"] = "cached_rate_missing_full_input_rate"
+        else:
+            reported["cost_reason"] = "configured_rates"
+        cached_rate = self.input_rate_per_million if cached_rate is None else cached_rate
+        # Output tokens already include reasoning tokens. Never add the details
+        # subtotal a second time; cached input is also a subset, not extra input.
+        try:
+            cost = ((input_tokens - cached) * self.input_rate_per_million + cached * cached_rate
+                    + output_tokens * self.output_rate_per_million) / 1_000_000
+        except OverflowError:
+            fail("invalid_usage_cost")
+        if not math.isfinite(cost):
+            fail("invalid_usage_cost")
+        reported["estimated_cost_usd"] = cost
+        return reported
 
     def decide(self, context: dict[str, Any]) -> Decision:
         output_limit = self.max_output_tokens
@@ -212,7 +293,7 @@ class OpenAIProvider:
             self.endpoint,
             data=canonical(payload).encode("utf-8"),
             headers={"Authorization": f"Bearer {self._api_key}",
-                     "Content-Type": "application/json", "User-Agent": "HarnessLab/0.1.0"},
+                     "Content-Type": "application/json", "User-Agent": f"HarnessLab/{__version__}"},
             method="POST",
         )
         try:
@@ -233,11 +314,10 @@ class OpenAIProvider:
             raise ProviderError("invalid_response_json") from None
         if not isinstance(response, dict):
             raise ProviderError("invalid_response_object")
-        input_tokens, output_tokens, cost = self._usage(response)
+        usage = self._usage(response)
 
         def fail(code: str) -> None:
-            raise ProviderError(code, input_tokens=input_tokens, output_tokens=output_tokens,
-                                estimated_cost_usd=cost)
+            raise ProviderError(code, **usage)
 
         if response.get("status") != "completed":
             fail("response_incomplete")
@@ -277,4 +357,4 @@ class OpenAIProvider:
             action = Action.from_dict(raw)
         except (ValueError, TypeError, KeyError):
             fail("invalid_action")
-        return Decision(action, input_tokens, output_tokens, cost)
+        return Decision(action, **usage)

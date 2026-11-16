@@ -2,71 +2,94 @@
 
 [![Contract checks](https://github.com/JhoanFuentes/harnesslab/actions/workflows/ci.yml/badge.svg)](https://github.com/JhoanFuentes/harnesslab/actions/workflows/ci.yml)
 
-**A durable agent runtime with reproducible tests for failures, approvals and evidence.**
+**Durable agent execution. Reproducible evaluations. Cost per successful task.**
 
-HarnessLab is a durable agent runtime and evaluation lab for evidence-grounded
-incident diagnosis. It makes model decisions inspectable, enforces tool and
-completion contracts, and compares harness configurations against the same
-synthetic incident suite.
+An incident-diagnosis agent can produce a plausible answer while citing unread
+sources, repeating a side effect after a crash, or losing track of a billed
+request. HarnessLab makes those failure modes inspectable and turns them into
+runtime controls and reproducible experiments.
 
-**Python 3.11+ · Zero runtime dependencies · Offline demo · Optional OpenAI Responses adapter**
+**v0.2.0 · Python 3.11+ · Standard-library runtime · SQLite · Optional OpenAI Responses adapter**
 
-**[Explore the evaluation report](https://jhoanfuentes.github.io/harnesslab/)** ·
-[Read the case study](docs/CASE_STUDY.md) ·
-[Download a release](https://github.com/JhoanFuentes/harnesslab/releases)
+[Explore recorded conformance results](https://jhoanfuentes.github.io/harnesslab/) ·
+[Explore the study plan](https://jhoanfuentes.github.io/harnesslab/study/) ·
+[Architecture decisions](docs/ARCHITECTURE.md) ·
+[Download v0.2.0](https://github.com/JhoanFuentes/harnesslab/releases/tag/v0.2.0)
 
-An incident agent may produce a plausible answer while citing documents it never
-read, repeating a side effect after a restart, or losing track of a billed request.
-HarnessLab turns these failure modes into explicit runtime contracts and
-reproducible experiments.
+## What has actually been demonstrated
 
-**Validated:** 69 tests passed on Windows and Ubuntu with Python 3.11 and 3.13 ·
-12 synthetic cases · 4 configurations · 48 scripted evaluation runs.
-[Validation record](docs/VALIDATION.md).
-
-Research cutoff: **November 15, 2026**. [Sources and design implications](docs/RESEARCH.md).
-
-En español: [empieza aquí](EMPIEZA_AQUI.md) · [publicar en GitHub](docs/PUBLISH_ES.md).
-
-![Scripted runtime contract results: baseline 7/12, hardened 12/12, no evidence gate 9/12, no retries 11/12. No live LLM inference.](docs/assets/contract-results.svg)
-
-## Review it in 60 seconds
-
-| Question | Where to look |
+| Evidence | Scope |
 | --- | --- |
-| What does each control change? | [Recorded ablation results](#the-experiment) and [raw per-run evidence](examples/demo/results.json) |
-| Why can a correct answer still fail? | [Premature-finish case study with actual event traces](docs/CASE_STUDY.md) |
-| What survives a crash? | [Runtime](harnesslab/engine.py), [transaction store](harnesslab/store.py), and [recovery tests](tests/test_engine.py) |
-| How is success judged? | [Independent graders](harnesslab/evaluation.py) and [evaluation protocol](docs/EVALUATION.md) |
-| Which guarantees are deliberately limited? | [Architecture decisions](docs/ARCHITECTURE.md) and [security boundaries](SECURITY.md) |
+| **140 passing local tests** | Runtime recovery, provider contracts, usage accounting, dataset integrity and study integration. GitHub checks Windows/Ubuntu and Python 3.11/3.13; see the [validation record](docs/VALIDATION.md) for observed runs. |
+| **48 recorded scripted runs** | 12 original cases × 4 harness configurations. Hardened passes 12/12; baseline 7/12. These are runtime conformance results, not LLM accuracy. |
+| **4 development + 12 test fixtures** | A separate public synthetic suite with fixed diagnosis aliases, evidence requirements, abstentions and injection scenarios. No domain-expert or contamination-controlled benchmark claim. |
+| **240 planned task attempts** | Draft study: 12 test cases × 2 models × 2 profiles × 5 trials. Model snapshots and prices are deliberately unset. **No live model evaluation has been executed.** |
 
-The included scores measure **harness conformance with scripted decisions**.
-The optional live adapter is implemented and protocol-tested; no real-model
-accuracy result is claimed.
+The original measured report and traces are preserved with their runtime source
+snapshot. The new planning preview contains a protocol, not invented results.
 
-## Try it in two minutes
+## Engineering decisions and tradeoffs
 
-From this repository directory, on Windows, macOS, or Linux:
+| Engineering problem | Decision | Inspect the evidence |
+| --- | --- | --- |
+| A crash can repeat work or obscure a model charge | Reserve requests durably, persist pending actions, reuse local effect receipts, retain unknown usage | [Runtime](harnesslab/engine.py), [recovery tests](tests/test_engine.py) |
+| A model can claim success without valid evidence | Keep outcome, evidence and safety graders outside the model; require all three to pass | [Graders](harnesslab/evaluation.py), [premature-finish case study](docs/CASE_STUDY.md) |
+| Reruns can exaggerate statistical confidence | Freeze the protocol, randomize the schedule, bootstrap task clusters and disclose missing slots | [Study runner](harnesslab/study.py), [metrics tests](tests/test_study_metrics.py) |
+| Successful attempts alone hide the cost of failure | Divide the cost of **all attempted tasks** by successful tasks; leave zero-success and unknown-cost ratios unavailable | [Metrics](harnesslab/study_metrics.py), [usage tests](tests/test_usage_accounting.py) |
+| More orchestration can obscure the failure boundary | Use one replaceable decision-maker, explicit policies and SQLite before introducing distributed agents | [Architecture and limits](docs/ARCHITECTURE.md), [security model](SECURITY.md) |
+
+The senior-level contribution is the combination of explicit operating limits,
+independent evaluation and inspectable evidence. Local transactions do not make
+external APIs exactly-once; citations do not prove semantic entailment; observed
+cost thresholds are not provider-enforced billing ceilings.
+
+## Run it without credentials
+
+From the repository directory:
 
 ```sh
-python -m harnesslab demo --output runs/demo
 python -m unittest discover -s tests -v
+python -m harnesslab demo --output runs/demo
+python -m harnesslab study-plan --config studies/live.example.json --output runs/study-plan.json
 ```
 
-Open `runs/demo/report.html` in a browser. It works offline, with profile filters,
-outcome/evidence/safety scores, expandable traces, cost and latency accounting,
-and a reproducibility manifest. No API key, Docker, or package install is needed.
+Open `runs/demo/report.html` for measured scripted outcomes and
+`runs/study-plan.html` for the unexecuted study. These commands require no API key
+or third-party runtime packages and make no model API calls.
 
-The [public report](https://jhoanfuentes.github.io/harnesslab/) needs no installation.
-The same generated artifact is included at [examples/demo/report.html](examples/demo/report.html),
-with machine-readable results in [examples/demo/results.json](examples/demo/results.json).
-Download the repository to open the HTML locally; GitHub's code view displays its source.
-CI verifies that the example's source hash, dataset, grades and audit chains agree
-before GitHub Pages can publish it.
+The public versions need no installation:
+[conformance report](https://jhoanfuentes.github.io/harnesslab/) and
+[study preview](https://jhoanfuentes.github.io/harnesslab/study/).
+Their source artifacts are [original results](examples/demo/results.json) and
+[the v0.2.0 plan](examples/planned-study/v0.2.0/plan.json).
 
 Optional editable install: `python -m pip install -e .`, then use `harnesslab`
-instead of `python -m harnesslab`. Installation may need build tooling from PyPI;
-the commands above do not.
+in place of `python -m harnesslab`. Installation may fetch build tooling.
+
+## How execution and measurement fit together
+
+```mermaid
+flowchart LR
+    Plan["Frozen plan: cases, rubric, models, limits"] --> Study["Randomized repeated trials"]
+    Study --> Runtime["Harness: policies and state transitions"]
+    Runtime <--> Provider["Typed model provider"]
+    Runtime <--> Tools["Scoped synthetic tools"]
+    Runtime <--> State["SQLite checkpoints and receipts"]
+    State --> Grader["Independent outcome / evidence / safety grading"]
+    Plan --> Grader
+    Grader --> Metrics["Cost per success, consistency and task-cluster intervals"]
+```
+
+Expected diagnoses, aliases and scripted tapes stay outside model context.
+The runtime authorizes simulated effects; the model only proposes actions.
+For a future paid study, configure supported models and current rates, freeze a
+new plan and explicitly invoke `study-run` as described in the
+[execution protocol](docs/LIVE_STUDY.md). Failed attempts and ambiguous usage
+remain visible. No automatic provider retries or study-wide resume are implied.
+
+En español: [empieza aquí](EMPIEZA_AQUI.md) ·
+[demo e historia para entrevistas](docs/PORTFOLIO_ES.md).
+Research cutoff: **November 15, 2026**. [Primary sources](docs/RESEARCH.md).
 
 ## What is inside
 
@@ -210,7 +233,9 @@ To estimate costs, set **both** `OPENAI_INPUT_USD_PER_MILLION` and
 `OPENAI_OUTPUT_USD_PER_MILLION` from your model's applicable pricing. A single run
 can additionally use `--max-cost-usd 0.25 --max-tokens 12000`. Prices, provider
 settings and prompt hash are persisted and must match on resume. Prices are
-user-supplied estimates without caching/batch discounts. Missing pricing appears
+user-supplied estimates; optional `OPENAI_CACHED_INPUT_USD_PER_MILLION` accounts
+for reported cache reads. Batch discounts and cache-write tiers are not priced.
+Missing pricing appears
 as **Unknown**, never zero. Tokens/cost are observed after requests; one request
 can cross the threshold, after which its action is blocked. These are not
 provider-side billing ceilings or an organization-wide spend limit.
@@ -242,8 +267,10 @@ separate. The bundled runbooks intentionally make the first lab approachable.
 
 ## Next experiments
 
-The next Applied AI study is a held-out incident dataset with reviewed labels,
-followed by repeated live trials across harness profiles. Other useful extensions
+The [new study infrastructure](docs/LIVE_STUDY.md) is ready for a development
+pilot, rubric review and then actual repeated model trials. The public synthetic
+test split still needs domain-expert review and does not establish generalization.
+Other useful extensions
 are semantic support grading and an external-tool adapter with an explicit
 idempotency contract. The repository includes a
 [four-week Spanish learning path](docs/LEARNING_PATH_ES.md) and

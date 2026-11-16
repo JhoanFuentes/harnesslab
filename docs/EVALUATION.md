@@ -1,5 +1,10 @@
 # Evaluation protocol
 
+This document preserves the original `demo` / `eval` conformance protocol.
+For frozen multi-model studies with randomized repeated trials, complete-case
+comparisons and cost per successful task, use [LIVE_STUDY.md](LIVE_STUDY.md).
+Its separate runner does not overwrite or relabel these historical results.
+
 ## Two different questions
 
 1. **Conformance:** does the runtime enforce its contracts when a provider emits

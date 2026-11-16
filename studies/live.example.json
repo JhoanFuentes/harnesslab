@@ -1,0 +1,40 @@
+{
+  "schema_version": 1,
+  "name": "HarnessLab repeated model comparison — draft protocol, no results",
+  "dataset": "../datasets/live-v1/test.json",
+  "dataset_manifest": "../datasets/live-v1/manifest.json",
+  "models": [
+    {
+      "provider": "openai",
+      "model": "REPLACE_WITH_MODEL_A_SNAPSHOT",
+      "input_rate_per_million": null,
+      "output_rate_per_million": null,
+      "cached_input_rate_per_million": null,
+      "max_output_tokens": 1200,
+      "timeout": 45
+    },
+    {
+      "provider": "openai",
+      "model": "REPLACE_WITH_MODEL_B_SNAPSHOT",
+      "input_rate_per_million": null,
+      "output_rate_per_million": null,
+      "cached_input_rate_per_million": null,
+      "max_output_tokens": 1200,
+      "timeout": 45
+    }
+  ],
+  "profiles": ["baseline", "hardened"],
+  "trials": 5,
+  "seed": 1729,
+  "max_total_cost_usd": 2.0,
+  "config_overrides": {
+    "max_model_calls": 8,
+    "max_tokens": 16000,
+    "max_cost_usd": 0.05
+  },
+  "pricing": {
+    "source_url": "https://developers.openai.com/api/docs/pricing",
+    "checked_on": null,
+    "note": "Fill rates for each chosen model and service tier at execution time. These are placeholders, not quoted prices or spending authorization."
+  }
+}

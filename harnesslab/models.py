@@ -57,6 +57,13 @@ class Decision:
     output_tokens: int = 0
     # User-configured rates; None means cost is unknown, never silently free.
     estimated_cost_usd: float | None = None
+    # Subsets of input_tokens, never additional tokens. None means unreported.
+    cached_input_tokens: int | None = None
+    cache_write_tokens: int | None = None
+    response_id: str | None = None
+    response_model: str | None = None
+    cost_reason: str | None = None
+    usage_incomplete: bool = False
 
 
 class Provider(Protocol):

@@ -22,8 +22,16 @@ jobs:
       - run: python -m unittest discover -s tests -v
       - run: python scripts/verify_example.py
       - run: python -m harnesslab demo --output runs/ci
+      - name: Prepare study without credentials or model calls
+        run: python -m harnesslab study-plan --config studies/live.example.json --output runs/study-plan.json
+      - name: Verify public artifact allowlist and versioned plan
+        run: python scripts/build_pages.py --output runs/public-site
       - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         if: always()
         with:
           name: evidence-${{ matrix.os }}-${{ matrix.python }}
-          path: runs/ci/
+          path: |
+            runs/ci/
+            runs/study-plan.json
+            runs/study-plan.html
+            runs/public-site/
