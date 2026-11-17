@@ -217,3 +217,8 @@ class SQLiteFakeGitHub(FakeGitHub):
             # state survived; never infer rollback solely from the exception.
             self._available = False
             raise _storage_error(error, "Cannot confirm FakeGitHub checkpoint; reopen before continuing") from error
+        except BaseException:
+            # Interrupts and unclassified failures can leave memory ahead of disk
+            # too. Invalidate the instance without swallowing/retyping the error.
+            self._available = False
+            raise

@@ -142,6 +142,47 @@ class ReleasePersistenceTests(unittest.TestCase):
                 self.assert_one_publication(summary(SQLiteFakeGitHub(path), self.identity),
                                             attempts=2 if boundary == "before_commit" else 1)
 
+    def test_unclassified_checkpoint_exceptions_invalidate_without_replacing_error(self) -> None:
+        # Raise Python exceptions directly: no OS signal or worker process is used.
+        for error_type in (KeyboardInterrupt, SystemExit, RuntimeError):
+            for boundary in ("before_commit", "after_commit"):
+                with self.subTest(error_type=error_type.__name__, boundary=boundary):
+                    tag = self.identity.tag
+                    original = error_type("Injected unclassified checkpoint failure")
+
+                    class AbruptBoundary(SQLiteFakeGitHub):
+                        def _checkpoint_boundary(self, point: str) -> None:
+                            if point == boundary and self.mutations[-1:] == [("publish", tag)]:
+                                raise original
+
+                    path = self.state_path.with_name(f"{error_type.__name__}-{boundary}.sqlite")
+                    github = AbruptBoundary.create(path, tags={tag: self.identity.source_commit})
+                    with self.assertRaises(error_type) as failure:
+                        publish_verified(github, self.identity, self.package, self.verification)
+                    self.assertIs(failure.exception, original)
+
+                    # Memory was mutated before checkpointing. Neither a cached
+                    # read, no-write confirmation nor a retry may trust it now.
+                    with self.assertRaises(StateError):
+                        github.get_release(tag)
+                    with self.assertRaises(StateError):
+                        github.assert_current()
+                    with self.assertRaises(StateError):
+                        publish_verified(github, self.identity, self.package, self.verification)
+
+                    restored = SQLiteFakeGitHub(path)
+                    saved = summary(restored, self.identity)
+                    self.assertEqual(saved["draft"], boundary == "before_commit")
+                    self.assertEqual(saved["publish_attempts"], 1)
+                    self.assertEqual(saved["mutations"].count(["publish", tag]),
+                                     0 if boundary == "before_commit" else 1)
+                    publish_verified(restored, self.identity, self.package, self.verification)
+                    recovered = summary(SQLiteFakeGitHub(path), self.identity)
+                    self.assert_one_publication(recovered,
+                                                attempts=2 if boundary == "before_commit" else 1)
+                    if boundary == "after_commit":
+                        self.assertEqual(recovered, saved)
+
     def test_create_does_not_overwrite_existing_state(self) -> None:
         SQLiteFakeGitHub.create(self.state_path, tags={self.identity.tag: self.identity.source_commit})
         before = self.state_path.read_bytes()
