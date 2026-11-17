@@ -2,11 +2,14 @@ name: Contract checks
 on:
   push:
   pull_request:
+  workflow_dispatch:
 permissions:
   contents: read
 jobs:
   test:
+    timeout-minutes: 10
     strategy:
+      fail-fast: false
       matrix:
         os: [ubuntu-latest, windows-latest]
         python: ['3.11', '3.13']
@@ -19,18 +22,22 @@ jobs:
       - uses: actions/setup-python@6d4fd22b20465ccc0f7354476588e8df7c9ca0e0 # v7.1.0
         with:
           python-version: ${{ matrix.python }}
-      - run: python -m unittest discover -s tests -v
+      - name: Contract suite including native Ctrl+C (offline)
+        run: python scripts/run_ci_tests.py --output runs/ci-tests
       - run: python scripts/verify_example.py
       - run: python -m harnesslab demo --output runs/ci
       - name: Prepare study without credentials or model calls
         run: python -m harnesslab study-plan --config studies/live.example.json --output runs/study-plan.json
       - name: Verify public artifact allowlist and versioned plan
         run: python scripts/build_pages.py --output runs/public-site
-      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+      - name: Preserve checks and diagnostic evidence
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         if: always()
         with:
           name: evidence-${{ matrix.os }}-${{ matrix.python }}
+          retention-days: 7
           path: |
+            runs/ci-tests/
             runs/ci/
             runs/study-plan.json
             runs/study-plan.html
